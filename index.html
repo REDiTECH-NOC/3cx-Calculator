@@ -234,20 +234,28 @@
                 return;
             }
 
-            // Parse all call segments
+            // Parse call segments, excluding first (header) and last (totals) rows
             const callSegments = [];
-            for (let i = 1; i < lines.length; i++) {
-                const values = parseCSVLine(lines[i]);
+            const dataLines = lines.slice(1, -1); // Remove first (headers) and last (totals) rows
+            
+            for (let i = 0; i < dataLines.length; i++) {
+                const values = parseCSVLine(dataLines[i]);
                 if (values.length < headers.length) continue;
 
                 const segment = {};
                 headers.forEach((header, index) => {
                     segment[header] = values[index] || '';
                 });
+                
+                // Skip rows that don't have valid Call ID or Call Time
+                if (!segment['Call ID'] || !segment['Call Time'] || segment['Call ID'].toLowerCase().includes('total')) {
+                    continue;
+                }
+                
                 callSegments.push(segment);
             }
 
-            console.log(`Parsed ${callSegments.length} call segments`);
+            console.log(`Parsed ${callSegments.length} call segments (excluding headers and totals)`);
             
             // Group by Call ID and process
             const callGroups = {};
@@ -638,7 +646,7 @@
                 let yPos = 140;
                 peakPeriods.slice(0, 10).forEach((period, index) => {
                     doc.setFontSize(10);
-                    doc.text(`${index + 1}. ${period.time.toLocaleDateString()} at ${period.time.toLocaleTimeString()} - ${period.maxCalls} simultaneous calls`, 25, yPos);
+                    doc.text(`${index + 1}. ${period.time.toLocaleDateString()} - ${period.maxCalls} simultaneous calls`, 25, yPos);
                     yPos += 10;
                 });
                 
@@ -685,7 +693,47 @@
                 doc.text(`Calls with transfers: ${transferredCalls.length}`, 25, yPos);
                 yPos += 10;
                 doc.text(`Transfer rate: ${((transferredCalls.length / processedCalls.length) * 100).toFixed(1)}%`, 25, yPos);
+                yPos += 8;
+                doc.setFontSize(9);
+                doc.setTextColor(100, 100, 100);
+                doc.text(`Note: Includes transfers to voicemail and other destinations`, 25, yPos);
+                doc.setFontSize(11);
+                doc.setTextColor(0, 0, 0);
                 yPos += 20;
+                
+                // Monthly breakdown
+                doc.text('Monthly Breakdown:', 20, yPos);
+                yPos += 15;
+                
+                // Group calls by month
+                const monthlyData = {};
+                processedCalls.forEach(call => {
+                    const monthKey = `${call.startTime.getFullYear()}-${String(call.startTime.getMonth() + 1).padStart(2, '0')}`;
+                    const monthName = call.startTime.toLocaleDateString('en-US', { year: 'numeric', month: 'long' });
+                    
+                    if (!monthlyData[monthKey]) {
+                        monthlyData[monthKey] = {
+                            name: monthName,
+                            callCount: 0,
+                            totalMinutes: 0
+                        };
+                    }
+                    
+                    monthlyData[monthKey].callCount++;
+                    monthlyData[monthKey].totalMinutes += call.totalDurationMs / 60000; // Using total duration (ringing + talking)
+                });
+                
+                // Sort months chronologically
+                const sortedMonths = Object.keys(monthlyData).sort();
+                
+                sortedMonths.forEach(monthKey => {
+                    const data = monthlyData[monthKey];
+                    doc.setFontSize(10);
+                    doc.text(`${data.name}: ${data.callCount} calls, ${Math.round(data.totalMinutes)} minutes`, 25, yPos);
+                    yPos += 8;
+                });
+                
+                yPos += 10;
                 
                 // Analysis methodology
                 doc.text('Analysis Methodology:', 20, yPos);
