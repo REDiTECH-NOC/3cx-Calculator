@@ -724,12 +724,12 @@
                         monthlyData[monthKey] = {
                             name: monthName,
                             callCount: 0,
-                            totalMinutes: 0
+                            talkingMinutes: 0
                         };
                     }
                     
                     monthlyData[monthKey].callCount++;
-                    monthlyData[monthKey].totalMinutes += call.totalDurationMs / 60000; // Using total duration (ringing + talking)
+                    monthlyData[monthKey].talkingMinutes += call.talkingMs / 60000; // Only talking time
                 });
                 
                 // Sort months chronologically
@@ -738,7 +738,7 @@
                 sortedMonths.forEach(monthKey => {
                     const data = monthlyData[monthKey];
                     doc.setFontSize(10);
-                    doc.text(`${data.name}: ${data.callCount} calls, ${Math.round(data.totalMinutes)} minutes`, 25, yPos);
+                    doc.text(`${data.name}: ${data.callCount} calls, ${Math.round(data.talkingMinutes)} minutes (talking)`, 25, yPos);
                     yPos += 8;
                 });
                 
