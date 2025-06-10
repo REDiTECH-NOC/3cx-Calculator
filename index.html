@@ -1,4 +1,11 @@
-<!DOCTYPE html>
+.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #721c24;
+        }<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -131,13 +138,20 @@
             min-width: 200px;
             text-align: center;
         }
-        .error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 15px 0;
-            color: #721c24;
+        .download-btn {
+            background: linear-gradient(45deg, #28a745, #20c997);
+            color: white;
+            padding: 12px 25px;
+            border: none;
+            border-radius: 20px;
+            cursor: pointer;
+            margin: 10px 5px;
+            font-size: 1em;
+            transition: all 0.3s ease;
+        }
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(40,167,69,0.3);
         }
     </style>
 </head>
@@ -165,10 +179,17 @@
                 
                 <div id="paginationContainer"></div>
                 <div id="tableContainer"></div>
+                
+                <div style="text-align: center; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+                    <button onclick="downloadPDFReport()" style="background: linear-gradient(45deg, #007bff, #0056b3); color: white; padding: 15px 30px; border: none; border-radius: 10px; cursor: pointer; font-size: 1.1em; font-weight: bold; box-shadow: 0 4px 15px rgba(0,123,255,0.3);">
+                        📄 Download Results Report (PDF)
+                    </button>
+                </div>
             </div>
         </div>
     </div>
 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
         let processedCalls = [];
         let peakPeriods = [];
@@ -565,6 +586,126 @@
                 handleFile({ target: { files: files } });
             }
         });
+
+        // PDF Report Generation
+        function downloadPDFReport() {
+            if (!processedCalls || processedCalls.length === 0) {
+                alert('No data available. Please upload and process a CSV file first.');
+                return;
+            }
+
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            // Title and Header
+            doc.setFontSize(20);
+            doc.setTextColor(0, 123, 255);
+            doc.text('3CX Simultaneous Call Analysis Report', 20, 25);
+            
+            doc.setFontSize(12);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 35);
+            
+            // Summary Box
+            doc.setDrawColor(0, 123, 255);
+            doc.setLineWidth(0.5);
+            doc.rect(15, 45, 180, 60);
+            
+            doc.setFontSize(16);
+            doc.setTextColor(0, 0, 0);
+            doc.text('EXECUTIVE SUMMARY', 20, 55);
+            
+            const maxCalls = peakPeriods.length > 0 ? peakPeriods[0].maxCalls : 1;
+            
+            doc.setFontSize(12);
+            doc.text(`Maximum Simultaneous Calls Required: ${maxCalls}`, 20, 70);
+            doc.text(`Total Unique Calls Analyzed: ${processedCalls.length}`, 20, 80);
+            doc.text(`Number of Peak Periods: ${peakPeriods.length}`, 20, 90);
+            
+            // Date Range
+            const dates = processedCalls.map(call => call.startTime).filter(date => !isNaN(date.getTime()));
+            if (dates.length > 0) {
+                const minDate = new Date(Math.min(...dates.map(d => d.getTime())));
+                const maxDate = new Date(Math.max(...dates.map(d => d.getTime())));
+                doc.text(`Analysis Period: ${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`, 20, 100);
+            }
+            
+            // Peak Periods Section
+            if (peakPeriods.length > 0) {
+                doc.setFontSize(14);
+                doc.text('PEAK PERIODS', 20, 125);
+                
+                let yPos = 140;
+                peakPeriods.slice(0, 10).forEach((period, index) => {
+                    doc.setFontSize(10);
+                    doc.text(`${index + 1}. ${period.time.toLocaleDateString()} at ${period.time.toLocaleTimeString()} - ${period.maxCalls} simultaneous calls`, 25, yPos);
+                    yPos += 10;
+                });
+                
+                if (peakPeriods.length > 10) {
+                    doc.text(`... and ${peakPeriods.length - 10} additional peak periods`, 25, yPos);
+                }
+            }
+            
+            // Add second page for detailed analysis if needed
+            if (processedCalls.length > 0) {
+                doc.addPage();
+                
+                doc.setFontSize(16);
+                doc.text('DETAILED ANALYSIS', 20, 25);
+                
+                doc.setFontSize(12);
+                doc.text('Call Volume Statistics:', 20, 45);
+                
+                // Calculate corrected statistics
+                const durations = processedCalls.map(call => call.totalDurationMs / 60000); // minutes
+                const ringingTimes = processedCalls.map(call => call.ringingMs / 60000); // minutes  
+                const talkingTimes = processedCalls.map(call => call.talkingMs / 60000); // minutes
+                
+                const avgDuration = durations.reduce((a, b) => a + b, 0) / durations.length;
+                const totalMinutes = durations.reduce((a, b) => a + b, 0);
+                const totalRingingMinutes = ringingTimes.reduce((a, b) => a + b, 0);
+                const totalTalkingMinutes = talkingTimes.reduce((a, b) => a + b, 0);
+                
+                let yPos = 60;
+                doc.setFontSize(11);
+                doc.text(`Average Call Duration: ${avgDuration.toFixed(1)} minutes`, 25, yPos);
+                yPos += 10;
+                doc.text(`Total Call Minutes: ${totalMinutes.toFixed(0)} minutes`, 25, yPos);
+                yPos += 10;
+                doc.text(`Total Ringing Minutes: ${totalRingingMinutes.toFixed(0)} minutes`, 25, yPos);
+                yPos += 10;
+                doc.text(`Total Talking Minutes: ${totalTalkingMinutes.toFixed(0)} minutes`, 25, yPos);
+                yPos += 20;
+                
+                // Multi-segment call analysis
+                const transferredCalls = processedCalls.filter(call => call.segmentCount > 1);
+                doc.text(`Call Transfer Analysis:`, 20, yPos);
+                yPos += 15;
+                doc.text(`Calls with transfers: ${transferredCalls.length}`, 25, yPos);
+                yPos += 10;
+                doc.text(`Transfer rate: ${((transferredCalls.length / processedCalls.length) * 100).toFixed(1)}%`, 25, yPos);
+                yPos += 20;
+                
+                // Analysis methodology
+                doc.text('Analysis Methodology:', 20, yPos);
+                yPos += 15;
+                doc.setFontSize(10);
+                doc.text('• Call segments grouped by Call ID to handle transfers', 25, yPos);
+                yPos += 8;
+                doc.text('• Total duration calculated from all segments (ringing + talking)', 25, yPos);
+                yPos += 8;
+                doc.text('• Simultaneous calls determined by overlapping time periods', 25, yPos);
+            }
+            
+            // Footer
+            doc.setFontSize(8);
+            doc.setTextColor(100, 100, 100);
+            doc.text('Generated by 3CX Simultaneous Call Calculator', 20, 280);
+            
+            // Save the PDF
+            doc.save('3CX_Call_Analysis_Report.pdf');
+        }
     </script>
 </body>
 </html>
