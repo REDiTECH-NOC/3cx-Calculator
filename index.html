@@ -10,14 +10,14 @@
             max-width: 1200px;
             margin: 0 auto;
             padding: 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #1a1a1a 0%, #4a0000 100%);
             min-height: 100vh;
         }
         .container {
             background: white;
             border-radius: 15px;
             padding: 30px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            box-shadow: 0 20px 40px rgba(0,0,0,0.3);
         }
         h1 {
             color: #333;
@@ -25,7 +25,7 @@
             margin-bottom: 30px;
         }
         .upload-area {
-            border: 3px dashed #007bff;
+            border: 3px dashed #dc3545;
             border-radius: 15px;
             padding: 40px;
             text-align: center;
@@ -34,31 +34,38 @@
             cursor: pointer;
         }
         .upload-area:hover {
-            background: #e9ecef;
+            background: #ffe6e6;
+            border-color: #c82333;
         }
         input[type="file"] {
             display: none;
         }
         .upload-btn {
-            background: #007bff;
+            background: linear-gradient(45deg, #dc3545, #c82333);
             color: white;
             padding: 15px 30px;
             border: none;
             border-radius: 25px;
             cursor: pointer;
             font-size: 1.1em;
+            transition: all 0.3s ease;
+        }
+        .upload-btn:hover {
+            background: linear-gradient(45deg, #c82333, #a71e2a);
+            transform: translateY(-2px);
         }
         .results {
             display: none;
             margin-top: 30px;
         }
         .result-card {
-            background: linear-gradient(135deg, #28a745, #20c997);
+            background: linear-gradient(135deg, #dc3545, #8b0000);
             color: white;
             padding: 25px;
             border-radius: 15px;
             margin: 20px 0;
             text-align: center;
+            box-shadow: 0 10px 25px rgba(220,53,69,0.3);
         }
         .result-card h2 {
             font-size: 3em;
@@ -69,6 +76,7 @@
             padding: 20px;
             border-radius: 10px;
             margin-top: 20px;
+            border: 1px solid #e9ecef;
         }
         table {
             width: 100%;
@@ -84,11 +92,11 @@
             border-bottom: 1px solid #dee2e6;
         }
         th {
-            background: #007bff;
+            background: linear-gradient(45deg, #2c2c2c, #1a1a1a);
             color: white;
         }
         tr:hover {
-            background: #f8f9fa;
+            background: #ffe6e6;
         }
         .pagination {
             display: flex;
@@ -100,9 +108,10 @@
             background: white;
             border-radius: 10px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            border: 1px solid #e9ecef;
         }
         .pagination button {
-            background: #007bff;
+            background: linear-gradient(45deg, #dc3545, #c82333);
             color: white;
             border: none;
             border-radius: 50%;
@@ -116,7 +125,7 @@
             transition: all 0.3s ease;
         }
         .pagination button:hover:not(:disabled) {
-            background: #0056b3;
+            background: linear-gradient(45deg, #c82333, #a71e2a);
             transform: scale(1.1);
         }
         .pagination button:disabled {
@@ -167,8 +176,8 @@
                 <div id="paginationContainer"></div>
                 <div id="tableContainer"></div>
                 
-                <div style="text-align: center; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
-                    <button onclick="downloadPDFReport()" style="background: linear-gradient(45deg, #007bff, #0056b3); color: white; padding: 15px 30px; border: none; border-radius: 10px; cursor: pointer; font-size: 1.1em; font-weight: bold; box-shadow: 0 4px 15px rgba(0,123,255,0.3);">
+                <div style="text-align: center; margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px; border: 1px solid #e9ecef;">
+                    <button onclick="downloadPDFReport()" style="background: linear-gradient(45deg, #dc3545, #8b0000); color: white; padding: 15px 30px; border: none; border-radius: 10px; cursor: pointer; font-size: 1.1em; font-weight: bold; box-shadow: 0 4px 15px rgba(220,53,69,0.3); transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
                         📄 Download Results Report (PDF)
                     </button>
                 </div>
@@ -575,7 +584,7 @@
             
             // Title and Header
             doc.setFontSize(20);
-            doc.setTextColor(0, 123, 255);
+            doc.setTextColor(220, 53, 69);
             doc.text('3CX Simultaneous Call Analysis Report', 20, 25);
             
             doc.setFontSize(12);
@@ -583,7 +592,7 @@
             doc.text(`Generated: ${new Date().toLocaleString()}`, 20, 35);
             
             // Summary Box
-            doc.setDrawColor(0, 123, 255);
+            doc.setDrawColor(220, 53, 69);
             doc.setLineWidth(0.5);
             doc.rect(15, 45, 180, 60);
             
