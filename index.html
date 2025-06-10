@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3CX v20 Simultaneous Call Calculator</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .upload-area {
+            border: 3px dashed #007bff;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            margin-bottom: 30px;
+            background: #f8f9fa;
+            cursor: pointer;
+        }
+        .upload-area:hover {
+            background: #e9ecef;
+        }
+        input[type="file"] {
+            display: none;
+        }
+        .upload-btn {
+            background: #007bff;
+            color: white;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 25px;
+            cursor: pointer;
+            font-size: 1.1em;
+        }
+        .results {
+            display: none;
+            margin-top: 30px;
+        }
+        .result-card {
+            background: linear-gradient(135deg, #28a745, #20c997);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin: 20px 0;
+            text-align: center;
+        }
+        .result-card h2 {
+            font-size: 3em;
+            margin: 0;
+        }
+        .details {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 15px;
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        th {
+            background: #007bff;
+            color: white;
+        }
+        tr:hover {
+            background: #f8f9fa;
+        }
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .pagination button {
+            background: #007bff;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+        .pagination button:hover:not(:disabled) {
+            background: #0056b3;
+            transform: scale(1.1);
+        }
+        .pagination button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        .pagination .page-info {
+            font-weight: bold;
+            font-size: 1.1em;
+            color: #333;
+            min-width: 200px;
+            text-align: center;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #721c24;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>3CX v20 Simultaneous Call Calculator</h1>
+        
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <h3>Upload Your 3CX v20 Call Report CSV</h3>
+            <p>Click here or drag and drop your CSV file</p>
+            <button class="upload-btn">Choose CSV File</button>
+            <input type="file" id="fileInput" accept=".csv" onchange="handleFile(event)">
+        </div>
+
+        <div class="results" id="results">
+            <div class="result-card">
+                <h2 id="maxCalls">0</h2>
+                <p>Maximum Simultaneous Calls Required</p>
+            </div>
+            
+            <div class="details">
+                <h3>Analysis Details</h3>
+                <p><strong>Total Unique Calls:</strong> <span id="totalCalls">0</span></p>
+                <p><strong>Date Range:</strong> <span id="dateRange">N/A</span></p>
+                
+                <div id="paginationContainer"></div>
+                <div id="tableContainer"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let processedCalls = [];
+        let peakPeriods = [];
+
+        function handleFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            if (!file.name.toLowerCase().endsWith('.csv')) {
+                showError('Please upload a CSV file.');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    processCSV(e.target.result);
+                } catch (error) {
+                    showError('Error reading file: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+
+        function processCSV(csvText) {
+            console.log('Starting CSV processing...');
+            
+            const lines = csvText.split('\n').filter(line => line.trim());
+            if (lines.length < 2) {
+                showError('CSV file appears to be empty or invalid.');
+                return;
+            }
+
+            const headers = lines[0].split(',').map(h => h.trim().replace(/"/g, ''));
+            console.log('Headers:', headers);
+
+            // Validate required headers
+            const requiredHeaders = ['Call Time', 'Call ID', 'Ringing', 'Talking'];
+            const missingHeaders = requiredHeaders.filter(h => !headers.includes(h));
+            if (missingHeaders.length > 0) {
+                showError(`Missing required headers: ${missingHeaders.join(', ')}`);
+                return;
+            }
+
+            // Parse all call segments
+            const callSegments = [];
+            for (let i = 1; i < lines.length; i++) {
+                const values = parseCSVLine(lines[i]);
+                if (values.length < headers.length) continue;
+
+                const segment = {};
+                headers.forEach((header, index) => {
+                    segment[header] = values[index] || '';
+                });
+                callSegments.push(segment);
+            }
+
+            console.log(`Parsed ${callSegments.length} call segments`);
+            
+            // Group by Call ID and process
+            const callGroups = {};
+            callSegments.forEach(segment => {
+                const callId = segment['Call ID'];
+                if (!callGroups[callId]) {
+                    callGroups[callId] = [];
+                }
+                callGroups[callId].push(segment);
+            });
+
+            console.log(`Found ${Object.keys(callGroups).length} unique Call IDs`);
+
+            // Process each unique call
+            processedCalls = [];
+            Object.keys(callGroups).forEach(callId => {
+                const segments = callGroups[callId];
+                
+                // Sort segments by time
+                segments.sort((a, b) => new Date(a['Call Time']) - new Date(b['Call Time']));
+                
+                // Calculate call details
+                const callStartTime = new Date(segments[0]['Call Time']);
+                const originalDestination = segments[0]['To'];
+                
+                // Find final destination (from answered segment or last segment)
+                let finalDestination = segments[segments.length - 1]['To'];
+                const answeredSegment = segments.find(s => s['Status'] === 'Answered');
+                if (answeredSegment) {
+                    finalDestination = answeredSegment['To'];
+                }
+
+                // Sum all durations
+                let totalRingingMs = 0;
+                let totalTalkingMs = 0;
+                
+                segments.forEach(segment => {
+                    totalRingingMs += parseTimeToMs(segment['Ringing'] || '0:00:00');
+                    totalTalkingMs += parseTimeToMs(segment['Talking'] || '0:00:00');
+                });
+
+                const totalDurationMs = totalRingingMs + totalTalkingMs;
+                const callEndTime = new Date(callStartTime.getTime() + totalDurationMs);
+
+                // Only include calls with some duration
+                if (totalDurationMs > 0) {
+                    processedCalls.push({
+                        callId: callId,
+                        startTime: callStartTime,
+                        endTime: callEndTime,
+                        totalDurationMs: totalDurationMs,
+                        ringingMs: totalRingingMs,
+                        talkingMs: totalTalkingMs,
+                        from: segments[0]['From'] || 'N/A',
+                        originalDestination: originalDestination,
+                        finalDestination: finalDestination,
+                        status: answeredSegment ? answeredSegment['Status'] : segments[0]['Status'],
+                        segmentCount: segments.length
+                    });
+                }
+            });
+
+            console.log(`Processed ${processedCalls.length} unique calls with duration`);
+            
+            if (processedCalls.length === 0) {
+                showError('No valid calls found with duration > 0');
+                return;
+            }
+
+            calculateSimultaneousCalls();
+        }
+
+        function parseTimeToMs(timeStr) {
+            if (!timeStr || timeStr === '0') return 0;
+            const parts = timeStr.split(':').map(Number);
+            if (parts.length === 3) {
+                return (parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000;
+            } else if (parts.length === 2) {
+                return (parts[0] * 60 + parts[1]) * 1000;
+            }
+            return 0;
+        }
+
+        function calculateSimultaneousCalls() {
+            console.log('Calculating simultaneous calls...');
+            
+            // Create start/end events
+            const events = [];
+            processedCalls.forEach(call => {
+                events.push({ time: call.startTime, type: 'start', call: call });
+                events.push({ time: call.endTime, type: 'end', call: call });
+            });
+
+            // Sort events by time
+            events.sort((a, b) => a.time - b.time);
+            
+            console.log(`Processing ${events.length} events`);
+
+            // Find maximum simultaneous calls
+            let currentCalls = 0;
+            let maxCalls = 0;
+            let maxCallTimes = [];
+
+            events.forEach(event => {
+                if (event.type === 'start') {
+                    currentCalls++;
+                    if (currentCalls > maxCalls) {
+                        maxCalls = currentCalls;
+                        maxCallTimes = [event.time];
+                    } else if (currentCalls === maxCalls) {
+                        maxCallTimes.push(event.time);
+                    }
+                } else {
+                    currentCalls--;
+                }
+            });
+
+            console.log(`Max simultaneous calls: ${maxCalls}`);
+            console.log(`Peak times: ${maxCallTimes.length}`);
+
+            // Group peak times that are close together (within 5 minutes)
+            peakPeriods = [];
+            maxCallTimes.forEach(time => {
+                const existingPeriod = peakPeriods.find(period => 
+                    Math.abs(period.time.getTime() - time.getTime()) < 300000 // 5 minutes
+                );
+                if (!existingPeriod) {
+                    peakPeriods.push({ time: time, maxCalls: maxCalls });
+                }
+            });
+
+            console.log(`Grouped into ${peakPeriods.length} peak periods`);
+
+            displayResults(maxCalls);
+        }
+
+        function displayResults(maxCalls) {
+            document.getElementById('maxCalls').textContent = maxCalls;
+            document.getElementById('totalCalls').textContent = processedCalls.length;
+            
+            // Set date range from all processed calls
+            if (processedCalls.length > 0) {
+                const allDates = processedCalls.map(call => call.startTime).filter(date => !isNaN(date.getTime()));
+                
+                if (allDates.length > 0) {
+                    const minDate = new Date(Math.min(...allDates.map(d => d.getTime())));
+                    const maxDate = new Date(Math.max(...allDates.map(d => d.getTime())));
+                    
+                    if (!isNaN(minDate.getTime()) && !isNaN(maxDate.getTime())) {
+                        document.getElementById('dateRange').textContent = 
+                            `${minDate.toLocaleDateString()} - ${maxDate.toLocaleDateString()}`;
+                    } else {
+                        document.getElementById('dateRange').textContent = 'Date parsing error';
+                    }
+                } else {
+                    document.getElementById('dateRange').textContent = 'No valid dates found';
+                }
+            } else {
+                document.getElementById('dateRange').textContent = 'No data';
+            }
+
+            // Create tables
+            createTables();
+            
+            document.getElementById('results').style.display = 'block';
+        }
+
+        let currentPeakIndex = 0;
+
+        function createTables() {
+            const paginationContainer = document.getElementById('paginationContainer');
+            const tableContainer = document.getElementById('tableContainer');
+            
+            paginationContainer.innerHTML = '';
+            tableContainer.innerHTML = '';
+            currentPeakIndex = 0;
+
+            if (peakPeriods.length === 0) {
+                // Show all calls if no peaks
+                createTable(tableContainer, processedCalls, 'All Calls');
+            } else if (peakPeriods.length === 1) {
+                // Single peak period
+                const activeCalls = getActiveCallsAtTime(peakPeriods[0].time);
+                createTable(tableContainer, activeCalls, 'Calls Active at Peak Time');
+            } else {
+                // Multiple peak periods - create pagination
+                createPagination(paginationContainer);
+                showCurrentPeak();
+            }
+        }
+
+        function createPagination(container) {
+            const paginationHtml = `
+                <div class="pagination">
+                    <button onclick="previousPeak()" id="prevBtn">‹</button>
+                    <div class="page-info" id="pageInfo">Peak 1 of ${peakPeriods.length}</div>
+                    <button onclick="nextPeak()" id="nextBtn">›</button>
+                </div>
+            `;
+            container.innerHTML = paginationHtml;
+            updatePaginationButtons();
+        }
+
+        function previousPeak() {
+            if (currentPeakIndex > 0) {
+                currentPeakIndex--;
+                showCurrentPeak();
+                updatePaginationButtons();
+            }
+        }
+
+        function nextPeak() {
+            if (currentPeakIndex < peakPeriods.length - 1) {
+                currentPeakIndex++;
+                showCurrentPeak();
+                updatePaginationButtons();
+            }
+        }
+
+        function updatePaginationButtons() {
+            const prevBtn = document.getElementById('prevBtn');
+            const nextBtn = document.getElementById('nextBtn');
+            const pageInfo = document.getElementById('pageInfo');
+            
+            if (prevBtn) prevBtn.disabled = currentPeakIndex === 0;
+            if (nextBtn) nextBtn.disabled = currentPeakIndex === peakPeriods.length - 1;
+            
+            if (pageInfo) {
+                const currentPeriod = peakPeriods[currentPeakIndex];
+                pageInfo.innerHTML = `
+                    Peak ${currentPeakIndex + 1} of ${peakPeriods.length}<br>
+                    <small style="font-weight: normal; color: #666;">${currentPeriod.time.toLocaleDateString()} ${currentPeriod.time.toLocaleTimeString()}</small>
+                `;
+            }
+        }
+
+        function showCurrentPeak() {
+            const tableContainer = document.getElementById('tableContainer');
+            const activeCalls = getActiveCallsAtTime(peakPeriods[currentPeakIndex].time);
+            tableContainer.innerHTML = '';
+            createTable(tableContainer, activeCalls, `Peak Period ${currentPeakIndex + 1}`);
+        }
+
+        function getActiveCallsAtTime(time) {
+            return processedCalls.filter(call => 
+                call.startTime <= time && call.endTime > time
+            );
+        }
+
+        function createTable(container, calls, title) {
+            const tableHtml = `
+                <h4>${title} (${calls.length} calls)</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Call Start</th>
+                            <th>From</th>
+                            <th>Original To</th>
+                            <th>Final Destination</th>
+                            <th>Total Duration</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${calls.map(call => `
+                            <tr>
+                                <td>${call.startTime.toLocaleString()}</td>
+                                <td>${call.from}</td>
+                                <td>${call.originalDestination}</td>
+                                <td>${call.finalDestination}</td>
+                                <td>${formatDuration(call.totalDurationMs)}</td>
+                                <td>${call.status}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            container.innerHTML = tableHtml;
+        }
+
+        function formatDuration(ms) {
+            const totalSeconds = Math.floor(ms / 1000);
+            const hours = Math.floor(totalSeconds / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            const seconds = totalSeconds % 60;
+            
+            if (hours > 0) {
+                return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+            } else {
+                return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+            }
+        }
+
+        function parseCSVLine(line) {
+            const values = [];
+            let current = '';
+            let inQuotes = false;
+            
+            for (let i = 0; i < line.length; i++) {
+                const char = line[i];
+                if (char === '"') {
+                    inQuotes = !inQuotes;
+                } else if (char === ',' && !inQuotes) {
+                    values.push(current.trim());
+                    current = '';
+                } else {
+                    current += char;
+                }
+            }
+            values.push(current.trim());
+            return values;
+        }
+
+        function showError(message) {
+            const uploadArea = document.querySelector('.upload-area');
+            uploadArea.innerHTML += `<div class="error"><strong>Error:</strong> ${message}</div>`;
+        }
+
+        // Drag and drop functionality
+        const uploadArea = document.querySelector('.upload-area');
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '#e9ecef';
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.background = '#f8f9fa';
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '#f8f9fa';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('fileInput').files = files;
+                handleFile({ target: { files: files } });
+            }
+        });
+    </script>
+</body>
+</html>
