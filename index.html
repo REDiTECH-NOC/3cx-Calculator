@@ -1,11 +1,4 @@
-.error {
-            background: #f8d7da;
-            border: 1px solid #f5c6cb;
-            border-radius: 10px;
-            padding: 15px;
-            margin: 15px 0;
-            color: #721c24;
-        }<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -138,22 +131,16 @@
             min-width: 200px;
             text-align: center;
         }
-        .download-btn {
-            background: linear-gradient(45deg, #28a745, #20c997);
-            color: white;
-            padding: 12px 25px;
-            border: none;
-            border-radius: 20px;
-            cursor: pointer;
-            margin: 10px 5px;
-            font-size: 1em;
-            transition: all 0.3s ease;
-        }
-        .download-btn:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(40,167,69,0.3);
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            border-radius: 10px;
+            padding: 15px;
+            margin: 15px 0;
+            color: #721c24;
         }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
     <div class="container">
@@ -189,10 +176,10 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script>
         let processedCalls = [];
         let peakPeriods = [];
+        let currentPeakIndex = 0;
 
         function handleFile(event) {
             const file = event.target.files[0];
@@ -322,7 +309,7 @@
                 }
             });
 
-            console.log(`Processed ${processedCalls.length} unique calls with duration`);
+            console.log(`Processed ${processedCalls.length} unique calls with duration > 0`);
             
             if (processedCalls.length === 0) {
                 showError('No valid calls found with duration > 0');
@@ -426,8 +413,6 @@
             
             document.getElementById('results').style.display = 'block';
         }
-
-        let currentPeakIndex = 0;
 
         function createTables() {
             const paginationContainer = document.getElementById('paginationContainer');
@@ -578,27 +563,6 @@
             uploadArea.innerHTML += `<div class="error"><strong>Error:</strong> ${message}</div>`;
         }
 
-        // Drag and drop functionality
-        const uploadArea = document.querySelector('.upload-area');
-        uploadArea.addEventListener('dragover', (e) => {
-            e.preventDefault();
-            uploadArea.style.background = '#e9ecef';
-        });
-
-        uploadArea.addEventListener('dragleave', () => {
-            uploadArea.style.background = '#f8f9fa';
-        });
-
-        uploadArea.addEventListener('drop', (e) => {
-            e.preventDefault();
-            uploadArea.style.background = '#f8f9fa';
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                document.getElementById('fileInput').files = files;
-                handleFile({ target: { files: files } });
-            }
-        });
-
         // PDF Report Generation
         function downloadPDFReport() {
             if (!processedCalls || processedCalls.length === 0) {
@@ -694,7 +658,7 @@
                 yPos += 10;
                 doc.text(`Total Talking Minutes: ${totalTalkingMinutes.toFixed(0)} minutes`, 25, yPos);
                 yPos += 20;
-                
+
                 // Multi-segment call analysis
                 const transferredCalls = processedCalls.filter(call => call.segmentCount > 1);
                 doc.text(`Call Transfer Analysis:`, 20, yPos);
@@ -764,6 +728,27 @@
             // Save the PDF
             doc.save('3CX_Call_Analysis_Report.pdf');
         }
+
+        // Drag and drop functionality
+        const uploadArea = document.querySelector('.upload-area');
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '#e9ecef';
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.style.background = '#f8f9fa';
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.style.background = '#f8f9fa';
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('fileInput').files = files;
+                handleFile({ target: { files: files } });
+            }
+        });
     </script>
 </body>
 </html>
